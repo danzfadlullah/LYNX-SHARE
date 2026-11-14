@@ -458,6 +458,7 @@ if(LYNX_BUILD_APP)
         src/platform/CrashGuard.cpp
         src/platform/Paths.cpp
         $<$<PLATFORM_ID:Windows>:src/platform/Package.cpp>
+        $<$<BOOL:${ANDROID}>:src/platform/Package.cpp>
         $<$<NOT:$<BOOL:${ANDROID}>>:src/platform/NativeEmbed.cpp>
         src/engine/AudioEngine.cpp
         src/engine/AudioEngineSession.cpp

@@ -840,8 +840,8 @@ AndroidReader::~AndroidReader()
 JNIEnv* AndroidReader::getEnv() const
 {
     // androidGetJNIEnv returns void* to avoid JNI header dependency in headers
-    extern void* androidGetJNIEnv();
-    return static_cast<JNIEnv*> (androidGetJNIEnv());
+    extern void* lynx::platform::androidGetJNIEnv();
+    return static_cast<JNIEnv*> (lynx::platform::androidGetJNIEnv());
 }
 
 video::Info AndroidReader::info() const

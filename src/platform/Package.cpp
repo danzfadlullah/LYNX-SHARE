@@ -167,7 +167,6 @@ juce::String packageReport()
         probe.deleteFile(); // (packaged, it stays: the release workflow looks for it from outside the package)
     lines.add (juce::String ("result=") + (ok ? "OK" : "FAILED"));
     return lines.joinIntoString ("\n") + "\n";
-}
 #if JUCE_ANDROID
 // Android stubs for package functions (Windows Store only)
 bool runningPackaged() { return false; }
