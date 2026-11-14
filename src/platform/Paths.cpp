@@ -72,6 +72,10 @@ void testModeLog (const juce::String& what)
     settingsFile ("test-mode.log").appendText (juce::Time::getCurrentTime().toISO8601 (true) + " | skipped: " + what + "\n");
 }
 
+#if !JUCE_ANDROID
+// Desktop implementations (Windows, macOS, Linux) - not compiled for Android
+// Android implementations are in platform/AndroidPaths.cpp
+
 juce::File documentsFolder()
 {
     if (const auto profile = profileOverride(); profile != juce::File())
@@ -146,7 +150,7 @@ juce::FileSearchPath standardPluginFolders()
         // only where they exist and are not a link to /usr/lib (Arch), which would list every plugin twice
         for (const auto* root : { "/usr/lib64", "/usr/local/lib64" })
             if (const juce::File lib (root); lib.isDirectory() && ! lib.isSymbolicLink() && lib.getChildFile (format).isDirectory()
-                && ! lib.getChildFile (format).isSymbolicLink())
+                && ! lib.isSymbolicLink())
                 paths.add (lib.getChildFile (format));
     }
    #endif
@@ -183,6 +187,7 @@ juce::File localFile (const std::string& utf8Path)
 {
     return localFile (juce::String::fromUTF8 (utf8Path.c_str()));
 }
+#endif // !JUCE_ANDROID
 
 // Touch / mobile mode: on desktop this is always false unless the user enables it in Settings
 // (the setting is stored in ui-options.txt). The Android implementation (platform/AndroidPaths.cpp)
