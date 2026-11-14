@@ -36,6 +36,22 @@
 
 namespace lynx::media
 {
+// For Android-specific code: bring symbols from the outer lynx::media namespace into scope
+// These need to be at namespace scope (not in anonymous namespace) to be visible
+// to the Android-specific code which is in a different anonymous namespace.
+#if JUCE_ANDROID
+using lynx::media::Probe;
+using lynx::media::probeLock;
+using lynx::media::probes;
+using lynx::media::openNative;
+using lynx::media::nativeBackendName;
+using lynx::media::decodeNativeAudio;
+using lynx::media::probeWithFfmpeg;
+using lynx::findFfmpeg;
+using lynx::media::probeLock;
+#endif
+} // namespace
+
 namespace
 {
 // Forward declaration for Android JNI environment accessor
@@ -768,18 +784,6 @@ void FrameDecoder::publish (const std::uint8_t* bgra, int srcW, int srcH, int w,
 // The actual decoding happens in the Java side (VideoDecoder.java) which uses MediaCodec / MediaExtractor.
 // This C++ side provides the JNI glue and the Reader interface.
 
-namespace lynx::media
-{
-// Bring symbols from the outer lynx::media namespace into scope for Android-specific code
-using lynx::media::Probe;
-using lynx::media::probeLock;
-using lynx::media::probes;
-using lynx::media::openNative;
-using lynx::media::nativeBackendName;
-using lynx::media::decodeNativeAudio;
-using lynx::media::probeWithFfmpeg;
-using lynx::findFfmpeg;
-using lynx::media::probeLock;
 class AndroidReader : public Reader
 {
 public:
