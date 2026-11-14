@@ -66,7 +66,10 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libgl1-mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev libfreetype6-dev pkg-config freetype2-demos
+          sudo apt-get install -y cmake ninja-build libgl1-mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev libfreetype6-dev pkg-config
+          # Verify FreeType headers are available
+          ls -la /usr/include/freetype2/ft2build.h /usr/include/ft2build.h 2>/dev/null || echo "FreeType headers not found in standard locations"
+          find /usr -name "ft2build.h" 2>/dev/null | head -5
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -87,10 +90,14 @@ jobs:
       - name: Configure CMake for Android
         run: |
           export ANDROID_NDK_HOME=${{ env.ANDROID_NDK_HOME }}
+          # Add FreeType include path for host build (juceaide)
+          FREETYPE_INCLUDE="/usr/include/freetype2"
           cmake -S . -B build-android -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_C_FLAGS="-I$FREETYPE_INCLUDE" \
+            -DCMAKE_CXX_FLAGS="-I$FREETYPE_INCLUDE" \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-26 \
             -DLYNX_BUILD_APP=ON \
