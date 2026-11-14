@@ -432,7 +432,7 @@ if(LYNX_BUILD_APP)
         ANDROID_PACKAGE "com.ka1s.lynx"
         ANDROID_VERSION_CODE 127
         ANDROID_VERSION_NAME "0.1.27"
-        ANDROID_MIN_SDK 26
+        ANDROID_MIN_SDK 29
         ANDROID_TARGET_SDK 34
         ANDROID_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/android/res/mipmap-xxxhdpi/ic_launcher.png")
 
