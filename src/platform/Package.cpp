@@ -167,13 +167,17 @@ juce::String packageReport()
         probe.deleteFile(); // (packaged, it stays: the release workflow looks for it from outside the package)
     lines.add (juce::String ("result=") + (ok ? "OK" : "FAILED"));
     return lines.joinIntoString ("\n") + "\n";
+} // namespace lynx::platform
+
 #if JUCE_ANDROID
 // Android stubs for package functions (Windows Store only)
+namespace lynx::platform
+{
 bool runningPackaged() { return false; }
 juce::String packageFamilyName() { return {}; }
 juce::String packageFullName() { return {}; }
 juce::File packagedSettingsFolder() { return {}; }
 bool relaunchApp() { return false; }
 juce::String packageReport() { return "packaged=no\nresult=OK\n"; }
+}
 #endif
-} // namespace lynx::platform
