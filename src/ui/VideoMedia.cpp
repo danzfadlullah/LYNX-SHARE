@@ -11,6 +11,19 @@
 #include "ui/I18n.h"
 #include "ui/VisualEditors.h"
 
+#include "ui/VideoMedia.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <map>
+
+#include <juce_audio_formats/juce_audio_formats.h>
+
+#include "platform/Paths.h"
+#include "ui/I18n.h"
+#include "ui/VisualEditors.h"
+
 #if JUCE_ANDROID
  #include <jni.h>
  #include <android/native_window.h>
@@ -18,6 +31,7 @@
  #include <thread>
  #include <mutex>
  #include <chrono>
+ #include "platform/AndroidPaths.h"
 #endif
 
 namespace lynx::media
@@ -737,14 +751,16 @@ void FrameDecoder::publish (const std::uint8_t* bgra, int srcW, int srcH, int w,
     ++frames;
 }
 
-#elif JUCE_ANDROID
+// Platform-specific native decoder implementations
+// Windows: Media Foundation (VideoMediaWindows.cpp)
+// macOS: AVFoundation (VideoMediaMac.mm)
+// Android: MediaCodec via JNI (below)
+// Linux/other: ffmpeg only (fallback returning nullptr)
+
+#if JUCE_ANDROID
 // Android: system decoder using MediaCodec / MediaExtractor through JNI.
 // The actual decoding happens in the Java side (VideoDecoder.java) which uses MediaCodec / MediaExtractor.
 // This C++ side provides the JNI glue and the Reader interface.
-
-#include <jni.h>
-#include <android/native_window.h>
-#include <android/native_window_jni.h>
 
 namespace
 {
@@ -820,12 +836,13 @@ AndroidReader::~AndroidReader()
     }
 }
 
+// Get JNIEnv for current thread - uses the app's cached JavaVM from AndroidJni.cpp
 JNIEnv* AndroidReader::getEnv() const
 {
     JNIEnv* env = nullptr;
-    auto* vm = juce::AndroidSystem::getJNIEnv();
-    if (vm != nullptr)
-        vm->GetEnv ((void**) &env, JNI_VERSION_1_6);
+    // Use the JNI environment from our AndroidJni glue
+    extern JNIEnv* androidGetJNIEnv();
+    env = androidGetJNIEnv();
     return env;
 }
 
@@ -892,8 +909,13 @@ std::unique_ptr<Reader> openNative (const juce::File& file)
     return std::make_unique<AndroidReader> (file);
 }
 
+#elif JUCE_WINDOWS || JUCE_MAC
+// Windows and macOS have their own native decoders in separate files:
+// VideoMediaWindows.cpp (Media Foundation) and VideoMediaMac.mm (AVFoundation)
+// These are compiled separately, so we don't define anything here.
+// The linker will pull in the right implementation.
 #else
-// Linux: no system decoder (ffmpeg only)
+// Linux/other: no system decoder (ffmpeg only)
 std::unique_ptr<Reader> openNative (const juce::File&) { return nullptr; }
 std::shared_ptr<const video::AudioTrack> decodeNativeAudio (const juce::File&, double) { return nullptr; }
 juce::String nativeBackendName() { return {}; }

@@ -60,4 +60,7 @@ void pickFolder ();
 juce::String uriToFile (const juce::String& uri, const juce::String& fallbackExtension);
 // Save local file to content:// URI
 bool saveFileToUri (const juce::String& localPath, const juce::String& uri);
+
+// Get JNIEnv for current thread (uses app's cached JavaVM from JNI_OnLoad)
+JNIEnv* androidGetJNIEnv();
 } // namespace lynx::platform
