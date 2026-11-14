@@ -768,7 +768,7 @@ void FrameDecoder::publish (const std::uint8_t* bgra, int srcW, int srcH, int w,
 // The actual decoding happens in the Java side (VideoDecoder.java) which uses MediaCodec / MediaExtractor.
 // This C++ side provides the JNI glue and the Reader interface.
 
-namespace
+namespace lynx::media
 {
 class AndroidReader : public Reader
 {
@@ -776,13 +776,13 @@ public:
     explicit AndroidReader (const juce::File& file);
     ~AndroidReader() override;
 
-    video::Info info() const override;
+    lynx::video::Info info() const override;
     bool seek (double seconds) override;
     bool next (std::vector<std::uint8_t>& bgra, int& w, int& h, double& time) override;
 
 private:
     jobject decoderGlobal = nullptr; // global ref to the Java VideoDecoder instance
-    video::Info videoInfo;
+    lynx::video::Info videoInfo;
     bool prepared = false;
     std::mutex mtx;
 
@@ -906,16 +906,16 @@ juce::String nativeBackendName()
 {
     return "MediaCodec";
 }
-} // namespace
+} // namespace lynx::media
 
 std::unique_ptr<Reader> openNative (const juce::File& file)
 {
-    return std::make_unique<AndroidReader> (file);
+    return std::make_unique<lynx::media::AndroidReader> (file);
 }
 
 #endif // JUCE_ANDROID
 
-#elif JUCE_WINDOWS || JUCE_MAC
+#if JUCE_WINDOWS || JUCE_MAC
 // Windows and macOS have their own native decoders in separate files:
 // VideoMediaWindows.cpp (Media Foundation) and VideoMediaMac.mm (AVFoundation)
 // These are compiled separately, so we don't define anything here.
