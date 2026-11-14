@@ -770,6 +770,16 @@ void FrameDecoder::publish (const std::uint8_t* bgra, int srcW, int srcH, int w,
 
 namespace lynx::media
 {
+// Bring symbols from the outer lynx::media namespace into scope for Android-specific code
+using lynx::media::Probe;
+using lynx::media::probeLock;
+using lynx::media::probes;
+using lynx::media::openNative;
+using lynx::media::nativeBackendName;
+using lynx::media::decodeNativeAudio;
+using lynx::media::probeWithFfmpeg;
+using lynx::findFfmpeg;
+using lynx::media::probeLock;
 class AndroidReader : public Reader
 {
 public:
