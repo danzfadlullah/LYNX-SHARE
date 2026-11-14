@@ -45,6 +45,12 @@ bool isTestHarness();
 bool isTouchMode();
 void setTouchMode (bool);
 
+// JNI setter functions (called from Java via JNI in AndroidJni.cpp)
+void setSettingsFolder (const juce::File&);
+void setCacheFolder (const juce::File&);
+void setBundledFontsFolder (const juce::File&);
+void setSharedStorageFolder (const juce::File&);
+
 // SAF (Storage Access Framework) file access for Android 10+ (API 29+)
 // These are called from the Java FileAccessHelper via JNI
 void setFileOpenCallback (std::function<void (const juce::String&, bool)>);

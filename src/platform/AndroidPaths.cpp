@@ -20,6 +20,12 @@ namespace
 // JUCE stores it in juce::android::getNativeActivity().
 extern ANativeActivity* androidNativeActivity();
 
+// Global storage for JNI-configured paths (set from Java via JNI)
+juce::File g_settingsFolder;
+juce::File g_cacheFolder;
+juce::File g_fontsFolder;
+juce::File g_sharedStorageFolder;
+
 AAssetManager* assetManager()
 {
     if (auto* act = androidNativeActivity())
@@ -55,6 +61,12 @@ juce::File cacheDir()
 // This is on shared storage but app-specific (deleted when app uninstalled).
 // May be null if external storage is not available.
 juce::File externalFilesDir()
+
+// JNI setter functions (called from AndroidJni.cpp via JNI)
+void setSettingsFolder (const juce::File& f) { g_settingsFolder = f; }
+void setCacheFolder (const juce::File& f) { g_cacheFolder = f; }
+void setBundledFontsFolder (const juce::File& f) { g_fontsFolder = f; }
+void setSharedStorageFolder (const juce::File& f) { g_sharedStorageFolder = f; }
 {
     if (auto* act = androidNativeActivity())
     {
