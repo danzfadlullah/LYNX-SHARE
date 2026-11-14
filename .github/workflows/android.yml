@@ -66,10 +66,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libgl1-mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev libfreetype6-dev pkg-config
-          # Verify FreeType headers are available
+          sudo apt-get install -y cmake ninja-build libgl1-mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev libfreetype6-dev libfontconfig1-dev pkg-config
+          # Verify FreeType/Fontconfig headers are available
           ls -la /usr/include/freetype2/ft2build.h /usr/include/ft2build.h 2>/dev/null || echo "FreeType headers not found in standard locations"
           find /usr -name "ft2build.h" 2>/dev/null | head -5
+          ls -la /usr/include/fontconfig/fontconfig.h 2>/dev/null || echo "Fontconfig headers not found"
 
       - name: Cache Gradle
         uses: actions/cache@v4
