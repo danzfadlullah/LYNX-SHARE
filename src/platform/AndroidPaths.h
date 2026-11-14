@@ -61,7 +61,7 @@ juce::String uriToFile (const juce::String& uri, const juce::String& fallbackExt
 // Save local file to content:// URI
 bool saveFileToUri (const juce::String& localPath, const juce::String& uri);
 
-#if JUCE_ANDROID
+#if defined(JUCE_ANDROID) || defined(ANDROID) || defined(__ANDROID__)
 // Get JNIEnv for current thread (uses app's cached JavaVM from JNI_OnLoad)
 JNIEnv* androidGetJNIEnv();
 #endif
