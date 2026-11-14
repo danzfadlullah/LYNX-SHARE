@@ -90,14 +90,13 @@ jobs:
       - name: Configure CMake for Android
         run: |
           export ANDROID_NDK_HOME=${{ env.ANDROID_NDK_HOME }}
-          # Add FreeType include path for host build (juceaide)
-          FREETYPE_INCLUDE="/usr/include/freetype2"
+          # Add FreeType include path for host build (juceaide uses system /usr/bin/c++)
+          export CPLUS_INCLUDE_PATH="/usr/include/freetype2:${CPLUS_INCLUDE_PATH}"
+          export C_INCLUDE_PATH="/usr/include/freetype2:${C_INCLUDE_PATH}"
           cmake -S . -B build-android -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DCMAKE_C_FLAGS="-I$FREETYPE_INCLUDE" \
-            -DCMAKE_CXX_FLAGS="-I$FREETYPE_INCLUDE" \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-26 \
             -DLYNX_BUILD_APP=ON \
