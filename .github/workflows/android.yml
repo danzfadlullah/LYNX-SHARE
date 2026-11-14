@@ -34,7 +34,7 @@ jobs:
           submodules: recursive
 
       - name: Setup Android NDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v2
         with:
           ndk-version: r26b
 
