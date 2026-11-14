@@ -96,6 +96,12 @@ std::shared_ptr<const video::AudioTrack> decodeTrackWithFfmpeg (const juce::File
     return track;
 }
 
+struct TrackEntry
+{
+    std::shared_ptr<const video::AudioTrack> track;
+    bool pending = false, done = false;
+};
+
 std::mutex probeLock;
 std::map<juce::String, Probe> probes;
 std::mutex trackLock;
@@ -300,8 +306,9 @@ void scaleBgra (const std::uint8_t* src, int srcW, int srcH, int srcStride, std:
             std::memcpy (d, src + (std::size_t) y * (std::size_t) srcStride, (std::size_t) w * 4);
             for (int x = 0; x < w; ++x)
                 d[x * 4 + 3] = 255;
-            return;
         }
+        return;
+    }
     // each target pixel averages the source pixels whose centres fall in it (at least the nearest one)
     std::vector<int> x0 ((std::size_t) w + 1);
     for (int x = 0; x <= w; ++x)
@@ -759,6 +766,36 @@ void FrameDecoder::publish (const std::uint8_t* bgra, int srcW, int srcH, int w,
 
 namespace lynx::media
 {
+// Android-specific definitions that mirror the desktop ones
+struct TrackEntry
+{
+    std::shared_ptr<const video::AudioTrack> track;
+    bool pending = false, done = false;
+};
+
+class FrameDecoder : public juce::Thread
+{
+public:
+    FrameDecoder();
+    ~FrameDecoder() override;
+
+    void setSource (const juce::String& p, const video::Info& i);
+    void setSize (int w, int h);
+    void request (double t, bool moving);
+
+    juce::Image frame (double& time);
+
+    void run() override;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl;
+};
+
+// Android: system decoder using MediaCodec / MediaExtractor through JNI.
+// The actual decoding happens in the Java side (VideoDecoder.java) which uses MediaCodec / MediaExtractor.
+// This C++ side provides the JNI glue and the Reader interface.
+
 class AndroidReader : public Reader
 {
 public:
