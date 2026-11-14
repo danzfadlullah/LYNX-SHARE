@@ -677,7 +677,7 @@ if(LYNX_BUILD_APP)
         # installation lookup (docs/PLATFORMS.md) and the real-time promotion (src/platform/LinuxRealtime.cpp) are
         # Linux/BSD-only and simply no-op here. VST3 plugin hosting compiles (the VST3 SDK is cross-platform); the
         # out-of-process sandbox uses the same POSIX shared-memory path as Linux (engine/PluginSandbox.cpp).
-        target_compile_definitions(LYNX PRIVATE JUCE_PLUGINHOST_VST3=1)
+        target_compile_definitions(LYNX PRIVATE JUCE_PLUGINHOST_VST3=1 __ANDROID_API__=29)
         # libcurl is loaded at run time (engine/LiveLink.cpp); the Android NDK ships it statically, nothing to link.
         target_link_libraries(LYNX PRIVATE ${CMAKE_DL_LIBS})
     else()
