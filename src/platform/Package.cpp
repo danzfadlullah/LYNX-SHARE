@@ -168,4 +168,13 @@ juce::String packageReport()
     lines.add (juce::String ("result=") + (ok ? "OK" : "FAILED"));
     return lines.joinIntoString ("\n") + "\n";
 }
+#if JUCE_ANDROID
+// Android stubs for package functions (Windows Store only)
+bool runningPackaged() { return false; }
+juce::String packageFamilyName() { return {}; }
+juce::String packageFullName() { return {}; }
+juce::File packagedSettingsFolder() { return {}; }
+bool relaunchApp() { return false; }
+juce::String packageReport() { return "packaged=no\nresult=OK\n"; }
+#endif
 } // namespace lynx::platform

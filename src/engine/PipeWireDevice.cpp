@@ -1075,6 +1075,12 @@ juce::String describePipeWire()
 namespace lynx
 {
 std::unique_ptr<juce::AudioIODeviceType> makePipeWireDeviceType() { return nullptr; }
+
+#if JUCE_ANDROID
+// Android stubs for PipeWire (Linux only)
+std::unique_ptr<juce::AudioIODeviceType> makePipeWireDeviceType() { return nullptr; }
+juce::String describePipeWire() { return {}; }
+#endif
 juce::String describePipeWire() { return "PipeWire: Linux only"; }
 } // namespace lynx
 

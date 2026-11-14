@@ -117,6 +117,11 @@ namespace juce
 // cmake/LynxPatchJuce.cmake fix 20 (round 177b): LYNX's items at the top of a VST3 plugin's parameter context menu
 extern void (*lynxVst3ParamMenuHook) (AudioPluginInstance&, int, PopupMenu&);
 } // namespace juce
+#else
+namespace juce
+{
+void (*lynxVst3ParamMenuHook) (AudioPluginInstance&, int, PopupMenu&) = nullptr;
+} // namespace juce
 #endif
 
 namespace lynx

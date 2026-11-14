@@ -18,7 +18,14 @@ namespace
 {
 // The ANativeActivity* we get from JUCE's Android startup (Main.cpp calls android_main).
 // JUCE stores it in juce::android::getNativeActivity().
-extern ANativeActivity* androidNativeActivity();
+ANativeActivity* g_nativeActivity = nullptr;
+
+ANativeActivity* androidNativeActivity() { return g_nativeActivity; }
+
+void setNativeActivity (ANativeActivity* act) { g_nativeActivity = act; }
+
+// Android doesn't have the "packaged" concept like Windows Store.
+bool runningPackaged() { return false; }
 
 // Global storage for JNI-configured paths (set from Java via JNI)
 juce::File g_settingsFolder;
