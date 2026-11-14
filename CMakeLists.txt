@@ -29,17 +29,9 @@ if(LYNX_BUILD_PLUGINS)
     endif()
 endif()
 
-# Android: enable NEON for ARM64 builds (sse2neon translates SSE to NEON; native NEON also available)
-if(ANDROID AND (ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "armeabi-v7a"))
-    if(NOT MSVC)
-        add_compile_options(-mfpu=neon -mfloat-abi=hard)
-        if(ANDROID_ABI STREQUAL "arm64-v8a")
-            add_compile_options(-march=armv8-a+simd)
-        else()
-            add_compile_options(-march=armv7-a+neon)
-        endif()
-    endif()
-endif()
+# Android: NEON is handled by the NDK toolchain automatically for arm64-v8a.
+# Don't add -mfpu=neon etc. manually - the toolchain sets the right flags for the target.
+# sse2neon translates SSE intrinsics to NEON at compile time.
 
 # ---------------------------------------------------------------------------
 # JUCE-free core: model, sequencer, built-in instruments and .flp reader

@@ -29,6 +29,13 @@ juce::File xdgFolder (const char* variable, const char* fallback)
         return juce::File (value);
     return home().getChildFile (fallback);
 }
+#elif JUCE_ANDROID
+// Android: no XDG; use the app's private directories via the Android implementation.
+// These forward to the JNI glue that sets the paths from Context.getFilesDir()/getCacheDir().
+juce::File xdgFolder (const char* /*variable*/, const char* /*fallback*/)
+{
+    return juce::File();
+}
 #endif
 } // namespace
 

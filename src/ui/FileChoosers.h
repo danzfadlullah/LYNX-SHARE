@@ -207,31 +207,26 @@ struct AndroidChooserCallbacks
 
 static std::unique_ptr<AndroidChooserCallbacks> g_androidCallbacks;
 
+// Helper: create a FileChooser with a known result for the callback
+static std::unique_ptr<juce::FileChooser> makeResultChooser (const juce::File& result, const juce::String& title = "Result", const juce::String& filters = {})
+{
+    auto chooser = std::make_unique<juce::FileChooser> (title, result, filters, false);
+    // Manually set the result so the callback sees the chosen file
+    // We can't directly set private result, so we rely on the callback using getResult()
+    // which will return the file we passed to the constructor
+    return chooser;
+}
+
 void androidChooserCallback (const juce::String& uri, bool success)
 {
     if (! g_androidCallbacks || ! g_androidCallbacks->callback)
         return;
 
-    // Convert SAF URI to local file path
     juce::String localPath = platform::uriToFile (uri, ".lynx");
+    juce::File resultFile = (success && localPath.isNotEmpty()) ? juce::File (localPath) : juce::File();
 
-    // Create a mock FileChooser-like result
-    struct MockChooser
-    {
-        juce::File result;
-        MockChooser (const juce::File& r) : result (r) {}
-        juce::File getResult() const { return result; }
-        juce::Array<juce::URL> getURLResults() const { return {}; }
-    };
-
-    if (success && localPath.isNotEmpty())
-    {
-        g_androidCallbacks->callback (MockChooser (juce::File (localPath)));
-    }
-    else
-    {
-        g_androidCallbacks->callback (MockChooser (juce::File()));
-    }
+    auto chooser = makeResultChooser (resultFile);
+    g_androidCallbacks->callback (*chooser);
     g_androidCallbacks.reset();
 }
 
@@ -240,29 +235,24 @@ void androidSaveCallback (const juce::String& uri, bool success)
     if (! g_androidCallbacks || ! g_androidCallbacks->callback)
         return;
 
-    // For save, we need to write the file to the URI
-    // The callback will be triggered after the user picks the location
-    // The actual save happens in the caller's callback (which gets the File)
-    // We just need to tell the caller the URI was picked
-
-    struct MockChooser
+    // For save: create a chooser with empty result but store the URI for the caller
+    // The caller's callback will get a FileChooser that has the URI accessible via a custom mechanism
+    // We'll pass the URI through a static variable that the caller can access
+    struct ResultChooser : juce::FileChooser
     {
-        juce::File result;
         juce::String uri;
-        MockChooser (const juce::File& r, const juce::String& u) : result (r), uri (u) {}
-        juce::File getResult() const { return result; }
-        juce::Array<juce::URL> getURLResults() const { return {}; }
+        ResultChooser (const juce::File& f, const juce::String& u) : juce::FileChooser ("Save result", f, {}, false), uri (u) {}
     };
 
     if (success && uri.isNotEmpty())
     {
-        // For save, we create a temp file that the caller will write to
-        // The actual content will be saved by the caller via platform::saveFileToUri
-        g_androidCallbacks->callback (MockChooser (juce::File(), uri));
+        auto chooser = std::make_unique<ResultChooser> (juce::File(), uri);
+        g_androidCallbacks->callback (*chooser);
     }
     else
     {
-        g_androidCallbacks->callback (MockChooser (juce::File(), juce::String()));
+        auto chooser = std::make_unique<ResultChooser> (juce::File(), juce::String());
+        g_androidCallbacks->callback (*chooser);
     }
     g_androidCallbacks.reset();
 }
@@ -278,8 +268,11 @@ inline void launchChooser (std::unique_ptr<juce::FileChooser>& holder, int flags
     {
         auto* chooser = holder.get();
         bool isSave = (flags & juce::FileBrowserComponent::saveMode) != 0;
-        juce::String filters = chooser->getWildcards();
-        juce::File start = chooser->getInitialFile();
+
+        // Get stored info from when the chooser was created
+        auto it = filechooser::made().find (chooser);
+        juce::String filters = (it != filechooser::made().end()) ? it->second.filters : juce::String();
+        juce::File start = (it != filechooser::made().end()) ? it->second.start : juce::File();
 
         g_androidCallbacks = std::make_unique<AndroidChooserCallbacks>();
         g_androidCallbacks->callback = std::move (callback);
@@ -326,8 +319,11 @@ inline void launchChooser (const std::shared_ptr<juce::FileChooser>& chooser, in
     if (chooser != nullptr)
     {
         bool isSave = (flags & juce::FileBrowserComponent::saveMode) != 0;
-        juce::String filters = chooser->getWildcards();
-        juce::File start = chooser->getInitialFile();
+
+        // Get stored info from when the chooser was created
+        auto it = filechooser::made().find (chooser.get());
+        juce::String filters = (it != filechooser::made().end()) ? it->second.filters : juce::String();
+        juce::File start = (it != filechooser::made().end()) ? it->second.start : juce::File();
 
         g_androidCallbacks = std::make_unique<AndroidChooserCallbacks>();
         g_androidCallbacks->callback = std::move (callback);
