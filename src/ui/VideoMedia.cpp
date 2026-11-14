@@ -913,6 +913,8 @@ std::unique_ptr<Reader> openNative (const juce::File& file)
     return std::make_unique<AndroidReader> (file);
 }
 
+#endif // JUCE_ANDROID
+
 #elif JUCE_WINDOWS || JUCE_MAC
 // Windows and macOS have their own native decoders in separate files:
 // VideoMediaWindows.cpp (Media Foundation) and VideoMediaMac.mm (AVFoundation)
