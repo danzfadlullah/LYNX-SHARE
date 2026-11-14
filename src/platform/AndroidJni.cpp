@@ -57,6 +57,143 @@ Java_com_ka1s_lynx_JuceApp_nativeDestroy (JNIEnv*, jobject)
     // The app is shutting down; JUCE handles cleanup.
 }
 
+// --- SAF File Access (called from com.ka1s.lynx.file.FileAccessHelper) ---
+
+// Global callback for file operations
+namespace lynx::platform
+{
+    static std::function<void (const juce::String&, bool)> g_fileOpenCallback;
+    static std::function<void (const juce::String&, bool)> g_fileSaveCallback;
+    static std::function<void (const juce::String&, bool)> g_folderPickCallback;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_ka1s_lynx_file_FileAccessHelper_nativeOnFileOpened (JNIEnv* env, jobject /*thiz*/,
+                                                              jstring uri, jstring displayName, jboolean success)
+{
+    if (uri == nullptr) {
+        if (lynx::platform::g_fileOpenCallback)
+            lynx::platform::g_fileOpenCallback (juce::String(), false);
+        return;
+    }
+    const char* uriStr = env->GetStringUTFChars (uri, nullptr);
+    const char* nameStr = env->GetStringUTFChars (displayName, nullptr);
+    lynx::platform::g_fileOpenCallback (juce::String (uriStr), success);
+    env->ReleaseStringUTFChars (uri, uriStr);
+    env->ReleaseStringUTFChars (displayName, nameStr);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_ka1s_lynx_file_FileAccessHelper_nativeOnFileSaved (JNIEnv* env, jobject /*thiz*/,
+                                                             jstring uri, jstring displayName, jboolean success)
+{
+    if (uri == nullptr) {
+        if (lynx::platform::g_fileSaveCallback)
+            lynx::platform::g_fileSaveCallback (juce::String(), false);
+        return;
+    }
+    const char* uriStr = env->GetStringUTFChars (uri, nullptr);
+    const char* nameStr = env->GetStringUTFChars (displayName, nullptr);
+    lynx::platform::g_fileSaveCallback (juce::String (uriStr), success);
+    env->ReleaseStringUTFChars (uri, uriStr);
+    env->ReleaseStringUTFChars (displayName, nameStr);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_ka1s_lynx_file_FileAccessHelper_nativeOnFolderPicked (JNIEnv* env, jobject /*thiz*/,
+                                                                jstring uri, jstring displayName, jboolean success)
+{
+    if (uri == nullptr) {
+        if (lynx::platform::g_folderPickCallback)
+            lynx::platform::g_folderPickCallback (juce::String(), false);
+        return;
+    }
+    const char* uriStr = env->GetStringUTFChars (uri, nullptr);
+    const char* nameStr = env->GetStringUTFChars (displayName, nullptr);
+    lynx::platform::g_folderPickCallback (juce::String (uriStr), success);
+    env->ReleaseStringUTFChars (uri, uriStr);
+    env->ReleaseStringUTFChars (displayName, nameStr);
+}
+
+// Called from C++ to open a document via SAF
+extern "C" JNIEXPORT void JNICALL
+Java_com_ka1s_lynx_file_FileAccessHelper_openDocument (JNIEnv* env, jobject /*thiz*/,
+                                                        jstring mimeTypes, jobject callbackObj)
+{
+    // The actual implementation is in FileAccessHelper.java static methods
+    // This is called from C++ via JNI to trigger the document picker
+    jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
+    if (cls == nullptr) return;
+
+    jmethodID method = env->GetStaticMethodID (cls, "openDocument", "(Ljava/lang/String;)V");
+    if (method == nullptr) return;
+
+    env->CallStaticVoidMethod (cls, method, mimeTypes);
+}
+
+// Called from C++ to save a document via SAF
+extern "C" JNIEXPORT void JNICALL
+Java_com_ka1s_lynx_file_FileAccessHelper_saveDocument (JNIEnv* env, jobject /*thiz*/,
+                                                        jstring suggestedName, jstring mimeType)
+{
+    jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
+    if (cls == nullptr) return;
+
+    jmethodID method = env->GetStaticMethodID (cls, "saveDocument", "(Ljava/lang/String;Ljava/lang/String;)V");
+    if (method == nullptr) return;
+
+    env->CallStaticVoidMethod (cls, method, suggestedName, mimeType);
+}
+
+// Called from C++ to pick a folder via SAF
+extern "C" JNIEXPORT void JNICALL
+Java_com_ka1s_lynx_file_FileAccessHelper_pickFolder (JNIEnv* env, jobject /*thiz*/)
+{
+    jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
+    if (cls == nullptr) return;
+
+    jmethodID method = env->GetStaticMethodID (cls, "pickFolder", "()V");
+    if (method == nullptr) return;
+
+    env->CallStaticVoidMethod (cls, method);
+}
+
+// Called from C++ to convert content:// URI to local file
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_ka1s_lynx_file_FileAccessHelper_uriToFile (JNIEnv* env, jobject /*thiz*/,
+                                                     jstring uri, jstring fallbackExtension)
+{
+    jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
+    if (cls == nullptr) return nullptr;
+
+    jmethodID method = env->GetStaticMethodID (cls, "uriToFile", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+    if (method == nullptr) return nullptr;
+
+    return (jstring) env->CallStaticObjectMethod (cls, method, uri, fallbackExtension);
+}
+
+// Called from C++ to save local file to content:// URI
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_ka1s_lynx_file_FileAccessHelper_saveFileToUri (JNIEnv* env, jobject /*thiz*/,
+                                                         jstring localPath, jstring uri)
+{
+    jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
+    if (cls == nullptr) return JNI_FALSE;
+
+    jmethodID method = env->GetStaticMethodID (cls, "saveFileToUri", "(Ljava/lang/String;Ljava/lang/String;)Z");
+    if (method == nullptr) return JNI_FALSE;
+
+    return env->CallStaticBooleanMethod (cls, method, localPath, uri);
+}
+
+// Set the C++ callbacks for file operations
+namespace lynx::platform
+{
+    void setFileOpenCallback (std::function<void (const juce::String&, bool)> cb) { g_fileOpenCallback = std::move (cb); }
+    void setFileSaveCallback (std::function<void (const juce::String&, bool)> cb) { g_fileSaveCallback = std::move (cb); }
+    void setFolderPickCallback (std::function<void (const juce::String&, bool)> cb) { g_folderPickCallback = std::move (cb); }
+}
+
 #else
 
 // Stubs for non-Android builds (the symbols are referenced by the build but never called).

@@ -213,4 +213,92 @@ bool g_touchMode = true;
 bool isTouchMode() { return g_touchMode; }
 void setTouchMode (bool on) { g_touchMode = on; }
 
+// --- SAF (Storage Access Framework) file access ---
+namespace
+{
+std::function<void (const juce::String&, bool)> g_fileOpenCallback;
+std::function<void (const juce::String&, bool)> g_fileSaveCallback;
+std::function<void (const juce::String&, bool)> g_folderPickCallback;
+}
+
+void setFileOpenCallback (std::function<void (const juce::String&, bool)> cb) { g_fileOpenCallback = std::move (cb); }
+void setFileSaveCallback (std::function<void (const juce::String&, bool)> cb) { g_fileSaveCallback = std::move (cb); }
+void setFolderPickCallback (std::function<void (const juce::String&, bool)> cb) { g_folderPickCallback = std::move (cb); }
+
+void openDocument (const juce::String& mimeTypes)
+{
+    JNIEnv* env = androidGetJNIEnv();
+    if (env == nullptr) return;
+    jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
+    if (cls == nullptr) return;
+    jmethodID method = env->GetStaticMethodID (cls, "openDocument", "(Ljava/lang/String;)V");
+    if (method == nullptr) return;
+    jstring jMime = env->NewStringUTF (mimeTypes.toRawUTF8());
+    env->CallStaticVoidMethod (cls, method, jMime);
+    env->DeleteLocalRef (jMime);
+}
+
+void saveDocument (const juce::String& suggestedName, const juce::String& mimeType)
+{
+    JNIEnv* env = androidGetJNIEnv();
+    if (env == nullptr) return;
+    jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
+    if (cls == nullptr) return;
+    jmethodID method = env->GetStaticMethodID (cls, "saveDocument", "(Ljava/lang/String;Ljava/lang/String;)V");
+    if (method == nullptr) return;
+    jstring jName = env->NewStringUTF (suggestedName.toRawUTF8());
+    jstring jMime = env->NewStringUTF (mimeType.toRawUTF8());
+    env->CallStaticVoidMethod (cls, method, jName, jMime);
+    env->DeleteLocalRef (jName);
+    env->DeleteLocalRef (jMime);
+}
+
+void pickFolder ()
+{
+    JNIEnv* env = androidGetJNIEnv();
+    if (env == nullptr) return;
+    jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
+    if (cls == nullptr) return;
+    jmethodID method = env->GetStaticMethodID (cls, "pickFolder", "()V");
+    if (method == nullptr) return;
+    env->CallStaticVoidMethod (cls, method);
+}
+
+juce::String uriToFile (const juce::String& uri, const juce::String& fallbackExtension)
+{
+    JNIEnv* env = androidGetJNIEnv();
+    if (env == nullptr) return juce::String();
+    jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
+    if (cls == nullptr) return juce::String();
+    jmethodID method = env->GetStaticMethodID (cls, "uriToFile", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+    if (method == nullptr) return juce::String();
+    jstring jUri = env->NewStringUTF (uri.toRawUTF8());
+    jstring jExt = env->NewStringUTF (fallbackExtension.toRawUTF8());
+    jstring result = (jstring) env->CallStaticObjectMethod (cls, method, jUri, jExt);
+    env->DeleteLocalRef (jUri);
+    env->DeleteLocalRef (jExt);
+    if (result == nullptr) return juce::String();
+    const char* str = env->GetStringUTFChars (result, nullptr);
+    juce::String ret (str);
+    env->ReleaseStringUTFChars (result, str);
+    env->DeleteLocalRef (result);
+    return ret;
+}
+
+bool saveFileToUri (const juce::String& localPath, const juce::String& uri)
+{
+    JNIEnv* env = androidGetJNIEnv();
+    if (env == nullptr) return false;
+    jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
+    if (cls == nullptr) return false;
+    jmethodID method = env->GetStaticMethodID (cls, "saveFileToUri", "(Ljava/lang/String;Ljava/lang/String;)Z");
+    if (method == nullptr) return false;
+    jstring jPath = env->NewStringUTF (localPath.toRawUTF8());
+    jstring jUri = env->NewStringUTF (uri.toRawUTF8());
+    jboolean result = env->CallStaticBooleanMethod (cls, method, jPath, jUri);
+    env->DeleteLocalRef (jPath);
+    env->DeleteLocalRef (jUri);
+    return result;
+}
+
 } // namespace lynx::platform

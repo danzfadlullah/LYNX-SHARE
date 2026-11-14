@@ -29,6 +29,18 @@ if(LYNX_BUILD_PLUGINS)
     endif()
 endif()
 
+# Android: enable NEON for ARM64 builds (sse2neon translates SSE to NEON; native NEON also available)
+if(ANDROID AND (ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "armeabi-v7a"))
+    if(NOT MSVC)
+        add_compile_options(-mfpu=neon -mfloat-abi=hard)
+        if(ANDROID_ABI STREQUAL "arm64-v8a")
+            add_compile_options(-march=armv8-a+simd)
+        else()
+            add_compile_options(-march=armv7-a+neon)
+        endif()
+    endif()
+endif()
+
 # ---------------------------------------------------------------------------
 # JUCE-free core: model, sequencer, built-in instruments and .flp reader
 
@@ -431,6 +443,22 @@ if(LYNX_BUILD_APP)
         ANDROID_MIN_SDK 26
         ANDROID_TARGET_SDK 34
         ANDROID_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/android/res/mipmap-xxxhdpi/ic_launcher.png")
+
+    # Copy custom Java sources into the generated Gradle project
+    if(ANDROID)
+        add_custom_command(TARGET LYNX PRE_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                ${CMAKE_CURRENT_BINARY_DIR}/LYNX_artefacts/${CMAKE_BUILD_TYPE}/app/src/main/java/com/ka1s/lynx/video
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                ${CMAKE_CURRENT_BINARY_DIR}/LYNX_artefacts/${CMAKE_BUILD_TYPE}/app/src/main/java/com/ka1s/lynx/file
+            COMMAND ${CMAKE_COMMAND} -E copy
+                ${CMAKE_CURRENT_SOURCE_DIR}/resources/android/java/com/ka1s/lynx/video/VideoDecoder.java
+                ${CMAKE_CURRENT_BINARY_DIR}/LYNX_artefacts/${CMAKE_BUILD_TYPE}/app/src/main/java/com/ka1s/lynx/video/VideoDecoder.java
+            COMMAND ${CMAKE_COMMAND} -E copy
+                ${CMAKE_CURRENT_SOURCE_DIR}/resources/android/java/com/ka1s/lynx/file/FileAccessHelper.java
+                ${CMAKE_CURRENT_BINARY_DIR}/LYNX_artefacts/${CMAKE_BUILD_TYPE}/app/src/main/java/com/ka1s/lynx/file/FileAccessHelper.java
+            COMMENT "Copy Android Java sources (VideoDecoder.java, FileAccessHelper.java)")
+    endif()
 
     # (a list: the plugin build, cmake/LynxPlugins.cmake, compiles the same sources without Main.cpp)
     set(LYNX_APP_SOURCES

@@ -27,6 +27,10 @@
  #include <unistd.h>
 #endif
 
+#if JUCE_ANDROID
+ #include "platform/AndroidPaths.h"
+#endif
+
 namespace lynx::ui
 {
 namespace filechooser
@@ -188,10 +192,120 @@ inline int chooserFlags (int flags)
     return (flags & juce::FileBrowserComponent::saveMode) != 0 ? flags | juce::FileBrowserComponent::canSelectFiles : flags;
 }
 
+#if JUCE_ANDROID
+// Android SAF document picker implementation
+namespace
+{
+// Callback storage for Android SAF
+struct AndroidChooserCallbacks
+{
+    std::function<void (const juce::FileChooser&)> callback;
+    juce::File startFolder;
+    juce::String filters;
+    bool isSave = false;
+};
+
+static std::unique_ptr<AndroidChooserCallbacks> g_androidCallbacks;
+
+void androidChooserCallback (const juce::String& uri, bool success)
+{
+    if (! g_androidCallbacks || ! g_androidCallbacks->callback)
+        return;
+
+    // Convert SAF URI to local file path
+    juce::String localPath = platform::uriToFile (uri, ".lynx");
+
+    // Create a mock FileChooser-like result
+    struct MockChooser
+    {
+        juce::File result;
+        MockChooser (const juce::File& r) : result (r) {}
+        juce::File getResult() const { return result; }
+        juce::Array<juce::URL> getURLResults() const { return {}; }
+    };
+
+    if (success && localPath.isNotEmpty())
+    {
+        g_androidCallbacks->callback (MockChooser (juce::File (localPath)));
+    }
+    else
+    {
+        g_androidCallbacks->callback (MockChooser (juce::File()));
+    }
+    g_androidCallbacks.reset();
+}
+
+void androidSaveCallback (const juce::String& uri, bool success)
+{
+    if (! g_androidCallbacks || ! g_androidCallbacks->callback)
+        return;
+
+    // For save, we need to write the file to the URI
+    // The callback will be triggered after the user picks the location
+    // The actual save happens in the caller's callback (which gets the File)
+    // We just need to tell the caller the URI was picked
+
+    struct MockChooser
+    {
+        juce::File result;
+        juce::String uri;
+        MockChooser (const juce::File& r, const juce::String& u) : result (r), uri (u) {}
+        juce::File getResult() const { return result; }
+        juce::Array<juce::URL> getURLResults() const { return {}; }
+    };
+
+    if (success && uri.isNotEmpty())
+    {
+        // For save, we create a temp file that the caller will write to
+        // The actual content will be saved by the caller via platform::saveFileToUri
+        g_androidCallbacks->callback (MockChooser (juce::File(), uri));
+    }
+    else
+    {
+        g_androidCallbacks->callback (MockChooser (juce::File(), juce::String()));
+    }
+    g_androidCallbacks.reset();
+}
+} // namespace
+#endif
+
 // chooser->launchAsync (flags, callback), with the built-in chooser opened in its place when the system's dialog never
 // showed. `holder` keeps the chooser (and, after a fallback, the built-in one that replaced it).
 inline void launchChooser (std::unique_ptr<juce::FileChooser>& holder, int flags, std::function<void (const juce::FileChooser&)> callback)
 {
+#if JUCE_ANDROID
+    if (holder != nullptr)
+    {
+        auto* chooser = holder.get();
+        bool isSave = (flags & juce::FileBrowserComponent::saveMode) != 0;
+        juce::String filters = chooser->getWildcards();
+        juce::File start = chooser->getInitialFile();
+
+        g_androidCallbacks = std::make_unique<AndroidChooserCallbacks>();
+        g_androidCallbacks->callback = std::move (callback);
+        g_androidCallbacks->startFolder = start;
+        g_androidCallbacks->filters = filters;
+        g_androidCallbacks->isSave = isSave;
+
+        if (isSave)
+        {
+            // Extract suggested filename from start folder or use default
+            juce::String suggestedName = start.getFileName();
+            if (suggestedName.isEmpty() || ! suggestedName.contains ("."))
+                suggestedName = "project.lynx";
+            platform::setFileSaveCallback (androidSaveCallback);
+            platform::saveDocument (suggestedName, "application/octet-stream");
+        }
+        else
+        {
+            // For open, use the filters to build mime types
+            juce::String mimeTypes = filters;
+            platform::setFileOpenCallback (androidChooserCallback);
+            platform::openDocument (mimeTypes);
+        }
+        return;
+    }
+#else
     if (holder == nullptr)
         return;
     auto* chooser = holder.get();
@@ -202,11 +316,42 @@ inline void launchChooser (std::unique_ptr<juce::FileChooser>& holder, int flags
                               holder = std::move (next);
                               juce::MessageManager::callAsync ([old] {});
                           }));
+#endif
 }
 
 // the same for a chooser kept alive by its own callback (a std::shared_ptr captured in it)
 inline void launchChooser (const std::shared_ptr<juce::FileChooser>& chooser, int flags, std::function<void (const juce::FileChooser&)> callback)
 {
+#if JUCE_ANDROID
+    if (chooser != nullptr)
+    {
+        bool isSave = (flags & juce::FileBrowserComponent::saveMode) != 0;
+        juce::String filters = chooser->getWildcards();
+        juce::File start = chooser->getInitialFile();
+
+        g_androidCallbacks = std::make_unique<AndroidChooserCallbacks>();
+        g_androidCallbacks->callback = std::move (callback);
+        g_androidCallbacks->startFolder = start;
+        g_androidCallbacks->filters = filters;
+        g_androidCallbacks->isSave = isSave;
+
+        if (isSave)
+        {
+            juce::String suggestedName = start.getFileName();
+            if (suggestedName.isEmpty() || ! suggestedName.contains ("."))
+                suggestedName = "project.lynx";
+            platform::setFileSaveCallback (androidSaveCallback);
+            platform::saveDocument (suggestedName, "application/octet-stream");
+        }
+        else
+        {
+            juce::String mimeTypes = filters;
+            platform::setFileOpenCallback (androidChooserCallback);
+            platform::openDocument (mimeTypes);
+        }
+        return;
+    }
+#else
     if (chooser == nullptr)
         return;
     flags = chooserFlags (flags);
@@ -216,5 +361,6 @@ inline void launchChooser (const std::shared_ptr<juce::FileChooser>& chooser, in
                               static std::vector<std::unique_ptr<juce::FileChooser>> kept;
                               kept.push_back (std::move (next));
                           }));
+#endif
 }
 } // namespace lynx::ui

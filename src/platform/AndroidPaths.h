@@ -44,4 +44,20 @@ bool isTestHarness();
 // for instrument tracks, and the UI scale defaults to 125% instead of 100%.
 bool isTouchMode();
 void setTouchMode (bool);
+
+// SAF (Storage Access Framework) file access for Android 10+ (API 29+)
+// These are called from the Java FileAccessHelper via JNI
+void setFileOpenCallback (std::function<void (const juce::String&, bool)>);
+void setFileSaveCallback (std::function<void (const juce::String&, bool)>);
+void setFolderPickCallback (std::function<void (const juce::String&, bool)>);
+
+// Trigger SAF document picker from C++
+void openDocument (const juce::String& mimeTypes);
+void saveDocument (const juce::String& suggestedName, const juce::String& mimeType);
+void pickFolder ();
+
+// Convert content:// URI to local file path (copies to app cache)
+juce::String uriToFile (const juce::String& uri, const juce::String& fallbackExtension);
+// Save local file to content:// URI
+bool saveFileToUri (const juce::String& localPath, const juce::String& uri);
 } // namespace lynx::platform
