@@ -422,15 +422,23 @@ if(LYNX_BUILD_APP)
         MICROPHONE_PERMISSION_TEXT "LYNX SHARE records audio from your microphone or audio interface when you arm a track and press Record."
         DOCUMENT_EXTENSIONS lynx flp mid
         HARDENED_RUNTIME_ENABLED FALSE
-        PLIST_TO_MERGE "<plist><dict><key>CFBundleName</key><string>LYNX SHARE</string><key>CFBundleDisplayName</key><string>LYNX SHARE</string><key>LSMinimumSystemVersion</key><string>11.0</string><key>NSHighResolutionCapable</key><true/></dict></plist>")
+        PLIST_TO_MERGE "<plist><dict><key>CFBundleName</key><string>LYNX SHARE</string><key>CFBundleDisplayName</key><string>LYNX SHARE</string><key>LSMinimumSystemVersion</key><string>11.0</string><key>NSHighResolutionCapable</key><true/></dict></plist>"
+        # Android (ignored on other platforms): the package name, version code/name, min/target SDK, and the icon
+        # mipmaps in resources/android/res/mipmap-*/ic_launcher.png (generated from resources/macos/lynx-icon-256.png).
+        ANDROID_PACKAGE "com.ka1s.lynx"
+        ANDROID_VERSION_CODE 127
+        ANDROID_VERSION_NAME "0.1.27"
+        ANDROID_MIN_SDK 26
+        ANDROID_TARGET_SDK 34
+        ANDROID_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/android/res/mipmap-xxxhdpi/ic_launcher.png")
 
     # (a list: the plugin build, cmake/LynxPlugins.cmake, compiles the same sources without Main.cpp)
     set(LYNX_APP_SOURCES
         src/platform/FileTypes.cpp
         src/platform/CrashGuard.cpp
         src/platform/Paths.cpp
-        src/platform/Package.cpp
-        src/platform/NativeEmbed.cpp
+        $<$<PLATFORM_ID:Windows>:src/platform/Package.cpp>
+        $<$<NOT:$<BOOL:${ANDROID}>>:src/platform/NativeEmbed.cpp>
         src/engine/AudioEngine.cpp
         src/engine/AudioEngineSession.cpp
         src/engine/ChannelRackProcessor.cpp
@@ -461,9 +469,9 @@ if(LYNX_BUILD_APP)
         src/engine/Exporter.cpp
         src/engine/FlStudioExport.cpp
         src/engine/StreamPrefetcher.cpp
-        src/engine/DllAsioDevice.cpp
-        src/engine/PipeWireDevice.cpp
-        src/platform/LinuxRealtime.cpp
+        $<$<PLATFORM_ID:Windows>:src/engine/DllAsioDevice.cpp>
+        $<$<PLATFORM_ID:Linux>:src/engine/PipeWireDevice.cpp>
+        $<$<NOT:$<BOOL:${ANDROID}>>:src/platform/LinuxRealtime.cpp>
         src/engine/ClapFormat.cpp
         src/engine/Vst2Format.cpp
         src/engine/MidiFileIo.cpp
@@ -510,7 +518,7 @@ if(LYNX_BUILD_APP)
         src/ui/DanceView.cpp
         src/ui/VideoPlayerView.cpp
         src/ui/VideoMedia.cpp
-        src/ui/VideoMediaWindows.cpp
+        $<$<PLATFORM_ID:Windows>:src/ui/VideoMediaWindows.cpp>
         src/ui/VideoTracks.cpp
         src/ui/AdrWindow.cpp
         src/ui/WaveTravellerEditor.cpp
@@ -601,6 +609,18 @@ if(LYNX_BUILD_APP)
         src/ui/StemExtract.cpp
         src/ui/AudioToMidi.cpp)
     target_sources(LYNX PRIVATE src/Main.cpp ${LYNX_APP_SOURCES})
+
+    # Android: the desktop-only pieces (JUCE window embedding, the Linux audio driver, the Windows video decoder)
+    # are replaced by the Android equivalents in src/platform/Android*. VideoMedia.cpp has its own #elif JUCE_ANDROID
+    # section for the MediaCodec decoder.
+    if(ANDROID)
+        target_sources(LYNX PRIVATE
+            src/platform/AndroidPaths.cpp
+            src/platform/AndroidRealtime.cpp
+            src/platform/AndroidNativeEmbed.cpp
+            src/platform/AndroidJni.cpp)
+    endif()
+
     target_include_directories(LYNX PRIVATE third_party/onnxruntime) # loaded at run time, never linked
 
     target_include_directories(LYNX PRIVATE third_party/clap/include)
@@ -632,6 +652,14 @@ if(LYNX_BUILD_APP)
         set_source_files_properties(src/ui/VideoMediaMac.mm PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
         target_link_libraries(LYNX PRIVATE "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
         target_link_libraries(LYNX PRIVATE ${CMAKE_DL_LIBS}) # (libcurl loaded at run time: engine/LiveLink.cpp)
+    elseif(ANDROID)
+        # Android: JUCE's own audio device (AudioManager / OpenGL ES through EGL), no desktop driver. The FL Studio
+        # installation lookup (docs/PLATFORMS.md) and the real-time promotion (src/platform/LinuxRealtime.cpp) are
+        # Linux/BSD-only and simply no-op here. VST3 plugin hosting compiles (the VST3 SDK is cross-platform); the
+        # out-of-process sandbox uses the same POSIX shared-memory path as Linux (engine/PluginSandbox.cpp).
+        target_compile_definitions(LYNX PRIVATE JUCE_PLUGINHOST_VST3=1)
+        # libcurl is loaded at run time (engine/LiveLink.cpp); the Android NDK ships it statically, nothing to link.
+        target_link_libraries(LYNX PRIVATE ${CMAKE_DL_LIBS})
     else()
         # ALSA (linked) + JACK (loaded at run time; PipeWire serves JACK clients through pipewire-jack)
         target_compile_definitions(LYNX PRIVATE JUCE_ALSA=1 JUCE_JACK=1 JUCE_PLUGINHOST_LV2=1)
@@ -640,7 +668,8 @@ if(LYNX_BUILD_APP)
         target_link_libraries(LYNX PRIVATE ${CMAKE_DL_LIBS})
     endif()
 
-    # the UI font on Linux and the BSDs (src/ui/Theme.cpp); Windows and macOS use their own and don't carry the files
+    # the UI font on Linux, the BSDs and Android (src/ui/Theme.cpp); Windows and macOS use their own and don't carry
+    # the files. On Android the fonts are packaged in the APK assets and read from there (src/platform/AndroidPaths.cpp).
     if(UNIX AND NOT APPLE)
         juce_add_binary_data(LynxFontData
             HEADER_NAME LynxFontData.h

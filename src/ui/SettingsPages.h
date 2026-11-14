@@ -21,6 +21,7 @@ struct GeneralOptions
     juce::String language;      // i18n id ("en", "pt-BR")
     juce::String uiFont;        // family; empty: the platform's default (ui-font.txt, read at start-up)
     int uiScale = 100;          // percent
+    bool touchMode = false;     // larger hit targets, on-screen keyboard for instruments, 125% default scale (Android defaults true)
     bool compactMenus = true;   // menu density: compact (native-like rows) or comfortable (round 163)
     bool waveSpectral = false, waveStereo = false;
     int noteNames = 0;          // notenames::Style: English, Germanic, Solfège (round 165f)

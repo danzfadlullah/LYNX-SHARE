@@ -130,7 +130,7 @@ public:
             options.language = i18n::current(); // --snapshot: the language of the run
 
         for (auto* c : std::initializer_list<juce::Component*> { &workflowTitle, &layoutStyleLabel, &layoutStyleBox, &layoutStyleNote, &alsSessionLabel, &alsSessionBox, &languageTitle, &displayTitle, &startupTitle, &editingTitle, &backupTitle,
-                                                                 &pluginsTitle, &languageLabel, &languageBox, &languageNote, &scaleLabel, &scaleBox, &menuLabel, &menuBox,
+                                                                 &pluginsTitle, &languageLabel, &languageBox, &languageNote, &scaleLabel, &scaleBox, &touchLabel, &touchBox, &menuLabel, &menuBox,
                                                                  &wavesLabel, &wavesBox, &stereoWaves, &noteNamesLabel, &noteNamesBox, &blackNotesLabel, &blackNotesBox, &everyKeyNames, &rackColumn, &rackStepColour, &pluginStyleLabel, &pluginStyleBox, &artMotion, &reducedEffects, &uiAnimations, &animationLabel, &animationBox, &animationNote, &gpuRendering, &templateLabel, &templateBox, &templateNote, &startupProjectLabel, &startupProjectBox, &splash, &startupSound, &scanAtStart, &menuEntry,
                                                                  &typingPiano, &keepEditors, &rememberSeek, &clipsLoop, &autoClipsAtPlayback, &firstChannel, &monoPaint, &autoSelectLinked, &noTypingPriority, &hoverValues, &editInLabel, &editInBox, &undoLabel,
                                                                  &undoBox, &alternateUndo, &hintsTitle, &manageMessages, &messagesNote, &autosaveLabel, &autosaveBox, &keepLabel, &keepBox, &openBackups, &backupQuiet, &longestWaitLabel, &longestWaitBox, &unusedTakes, &detachNew,
@@ -191,6 +191,12 @@ public:
             scaleBox.addItem (juce::String (percent) + "%", percent);
         scaleBox.setSelectedId (options.uiScale, juce::dontSendNotification);
         scaleBox.onChange = [this] { change ([&] { options.uiScale = scaleBox.getSelectedId(); }); };
+
+        styleLabel (touchLabel, tr ("Touch mode"));
+        touchBox.addItem (tr ("Off (desktop)"), 1);
+        touchBox.addItem (tr ("On (larger targets, on-screen keyboard)"), 2);
+        touchBox.setSelectedId (options.touchMode ? 2 : 1, juce::dontSendNotification);
+        touchBox.onChange = [this] { change ([&] { options.touchMode = touchBox.getSelectedId() == 2; }); };
 
         styleLabel (menuLabel, tr ("Menu density"));
         menuBox.addItem (tr ("Compact"), 1);
@@ -483,6 +489,7 @@ private:
         fontPreview.setBounds (r.indented (22).translated (0, -3));
         fontNote.setBounds (r.indented (16).translated (0, -5));
         scaleBox.setBounds (r.row (scaleLabel, 120));
+        touchBox.setBounds (r.row (touchLabel, 260));
         menuBox.setBounds (r.row (menuLabel, 160));
         wavesBox.setBounds (r.row (wavesLabel, 0));
         stereoWaves.setBounds (r.indented (24));
@@ -669,7 +676,7 @@ private:
     juce::ComboBox alsSessionBox;
     SectionTitle languageTitle { tr ("Language and display") }, displayTitle, startupTitle { tr ("Startup") }, editingTitle { tr ("Editing") },
         backupTitle { tr ("Backup") }, hintsTitle { tr ("Hints and warnings") }, pluginsTitle { tr ("Plugins and shortcuts") }, reportsTitle { tr ("Crash reports") }, updatesTitle { tr ("Updates") };
-    juce::Label longestWaitLabel, animationLabel, animationNote, languageLabel, languageNote, scaleLabel, menuLabel, wavesLabel, noteNamesLabel, blackNotesLabel, pluginStyleLabel, editInLabel, undoLabel, autosaveLabel, keepLabel, sandboxNote, substitutesNote, shortcutsNote, crashLabel, crashNote, updatesNote;
+    juce::Label longestWaitLabel, animationLabel, animationNote, languageLabel, languageNote, scaleLabel, touchLabel, menuLabel, wavesLabel, noteNamesLabel, blackNotesLabel, pluginStyleLabel, editInLabel, undoLabel, autosaveLabel, keepLabel, sandboxNote, substitutesNote, shortcutsNote, crashLabel, crashNote, updatesNote;
     juce::Label fontLabel, fontPreview, fontNote;
     juce::ComboBox fontBox;
     juce::Label templateLabel, templateNote, startupProjectLabel;
@@ -678,7 +685,7 @@ private:
     juce::TextButton fontReset { tr ("Reset to default") };
     juce::StringArray fontNames;
     juce::HyperlinkButton translationLink;
-    juce::ComboBox animationBox, crashBox, languageBox, scaleBox, menuBox, wavesBox, noteNamesBox, blackNotesBox, pluginStyleBox, editInBox, undoBox, autosaveBox, keepBox, longestWaitBox;
+    juce::ComboBox animationBox, crashBox, languageBox, scaleBox, touchBox, menuBox, wavesBox, noteNamesBox, blackNotesBox, pluginStyleBox, editInBox, undoBox, autosaveBox, keepBox, longestWaitBox;
     juce::ToggleButton detachNew, stereoWaves, everyKeyNames, rackColumn, rackStepColour, artMotion, reducedEffects, uiAnimations, gpuRendering, splash, startupSound, scanAtStart, menuEntry, typingPiano, keepEditors, rememberSeek, clipsLoop, autoClipsAtPlayback, firstChannel, monoPaint, hoverValues, alternateUndo, sandbox, substitutes, limitEditors, backupQuiet, unusedTakes, checkUpdates, noTypingPriority, autoSelectLinked;
     juce::ToggleButton autoNameChannels, restoreAfterSolo, readSampleTempo, historyNewestFirst; // FL's options of round 190bx (core/FlSettings.h)
     juce::TextButton openBackups { tr ("Open backup folder") }, managePlugins { tr ("Plugin manager...") }, manageShortcuts { tr ("Manage shortcuts...") },

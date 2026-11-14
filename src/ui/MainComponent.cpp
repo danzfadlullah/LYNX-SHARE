@@ -2718,6 +2718,8 @@ void MainComponent::loadUiSettings()
             theme::menus::setCompact (line.fromFirstOccurrenceOf ("=", false, false).trim() != "comfortable");
         else if (key == "uiScale")
             toolbarLayout.uiScale = toolbarlayout::clampScale (line.fromFirstOccurrenceOf ("=", false, false).trim().getIntValue());
+        else if (key == "touchMode")
+            toolbarLayout.touchMode = on;
         else if (key == "editPatternsIn")
             PlaylistComponent::editPatternsIn = juce::jlimit (0, 2, line.fromFirstOccurrenceOf ("=", false, false).trim().getIntValue());
         else if (key == "autosaveMinutes")
@@ -2943,6 +2945,7 @@ void MainComponent::saveUiSettings()
                                       + "\ntoolbarGroups=" + juce::String (toolbarLayout.orderToString())
                                       + "\ntoolbarIcons=" + toolbarlayout::Layout::iconSizeId (toolbarLayout.iconSize)
                                       + "\nuiScale=" + juce::String (toolbarLayout.uiScale)
+                                      + "\ntouchMode=" + juce::String (toolbarLayout.touchMode ? 1 : 0)
                                       + "\nmenuDensity=" + juce::String (theme::menus::compact() ? "compact" : "comfortable")
                                       + "\ntoolbarSeparators=" + juce::String (toolbarLayout.separators ? 1 : 0)
                                       + "\ntoolbarVisible=" + juce::String (toolbarLayout.visible ? 1 : 0)
@@ -7443,6 +7446,16 @@ void MainComponent::openSettings (int page)
             ui::WaveformCache::spectral = o.waveSpectral;
             ui::WaveformCache::stereo = o.waveStereo;
             ui::WaveformCache::getInstance()->settingsChanged();
+        }
+        if (o.touchMode != self.toolbarLayout.touchMode)
+        {
+            auto layout = self.toolbarLayout;
+            layout.touchMode = o.touchMode;
+            if (o.touchMode && layout.uiScale == 100)
+                layout.uiScale = 125; // default to 125% in touch mode
+            self.setToolbarLayout (layout, true);
+            // Also update the platform touch mode
+            platform::setTouchMode (o.touchMode);
         }
         if (o.typingPiano != self.typingPiano)
             self.setTypingPiano (o.typingPiano);

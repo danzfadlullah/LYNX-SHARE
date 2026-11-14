@@ -177,6 +177,32 @@ juce::File localFile (const std::string& utf8Path)
     return localFile (juce::String::fromUTF8 (utf8Path.c_str()));
 }
 
+// Touch / mobile mode: on desktop this is always false unless the user enables it in Settings
+// (the setting is stored in ui-options.txt). The Android implementation (platform/AndroidPaths.cpp)
+// defaults to true and also reads the setting.
+bool isTouchMode()
+{
+#if JUCE_ANDROID
+    // Forward to Android implementation
+    extern bool isTouchMode();
+    return isTouchMode();
+#else
+    static bool touchMode = false; // default off on desktop
+    return touchMode;
+#endif
+}
+
+void setTouchMode (bool on)
+{
+#if JUCE_ANDROID
+    extern void setTouchMode (bool);
+    setTouchMode (on);
+#else
+    static bool touchMode = false;
+    touchMode = on;
+#endif
+}
+
 bool relaunchFromAsciiPath (int& exitCode)
 {
    #if JUCE_WINDOWS

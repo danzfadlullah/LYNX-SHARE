@@ -49,4 +49,10 @@ juce::File localFile (const std::string& utf8Path);
 // starts LYNX again through the folder's 8.3 short name (plain ASCII), waits for it and returns true with its exit
 // code: the caller then quits. False (nothing done) when the path is ASCII, has no short name, or on other systems.
 bool relaunchFromAsciiPath (int& exitCode);
+
+// Touch / mobile mode: true when running on a touch screen device or when the user enables "Touch mode" in Settings.
+// When true, the UI uses larger hit targets, the on-screen keyboard is shown by default for instrument tracks,
+// and the UI scale defaults to 125% instead of 100%.
+bool isTouchMode();
+void setTouchMode (bool);
 } // namespace lynx::platform

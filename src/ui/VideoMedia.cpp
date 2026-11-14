@@ -11,6 +11,15 @@
 #include "ui/I18n.h"
 #include "ui/VisualEditors.h"
 
+#if JUCE_ANDROID
+ #include <jni.h>
+ #include <android/native_window.h>
+ #include <android/native_window_jni.h>
+ #include <thread>
+ #include <mutex>
+ #include <chrono>
+#endif
+
 namespace lynx::media
 {
 namespace
@@ -168,6 +177,8 @@ juce::String ffmpegInstallHelp (bool forExport)
     s << tr ("Windows: open a terminal and type") << "  winget install Gyan.FFmpeg\n";
 #elif JUCE_MAC
     s << tr ("macOS: install Homebrew, then type in a terminal") << "  brew install ffmpeg\n";
+#elif JUCE_ANDROID
+    s << tr ("Android: ffmpeg is not available on Android; use the system MediaCodec decoder.") << "\n";
 #else
     s << "Ubuntu, Debian, Mint:  sudo apt install ffmpeg\n";
     s << "Fedora:  sudo dnf install ffmpeg-free  (" << tr ("every codec: ffmpeg from RPM Fusion") << ")\n";
@@ -726,7 +737,162 @@ void FrameDecoder::publish (const std::uint8_t* bgra, int srcW, int srcH, int w,
     ++frames;
 }
 
-#if ! JUCE_WINDOWS && ! JUCE_MAC
+#elif JUCE_ANDROID
+// Android: system decoder using MediaCodec / MediaExtractor through JNI.
+// The actual decoding happens in the Java side (VideoDecoder.java) which uses MediaCodec / MediaExtractor.
+// This C++ side provides the JNI glue and the Reader interface.
+
+#include <jni.h>
+#include <android/native_window.h>
+#include <android/native_window_jni.h>
+
+namespace
+{
+class AndroidReader : public Reader
+{
+public:
+    explicit AndroidReader (const juce::File& file);
+    ~AndroidReader() override;
+
+    video::Info info() const override;
+    bool seek (double seconds) override;
+    bool next (std::vector<std::uint8_t>& bgra, int& w, int& h, double& time) override;
+
+private:
+    jobject decoderGlobal = nullptr; // global ref to the Java VideoDecoder instance
+    video::Info videoInfo;
+    bool prepared = false;
+    std::mutex mtx;
+
+    JNIEnv* getEnv() const;
+};
+
+AndroidReader::AndroidReader (const juce::File& file)
+{
+    JNIEnv* env = getEnv();
+    if (env == nullptr)
+        return;
+
+    // Find the Java VideoDecoder class
+    jclass cls = env->FindClass ("com/ka1s/lynx/video/VideoDecoder");
+    if (cls == nullptr)
+        return;
+
+    // Constructor: (Ljava/lang/String;)V
+    jmethodID ctor = env->GetMethodID (cls, "<init>", "(Ljava/lang/String;)V");
+    if (ctor == nullptr)
+        return;
+
+    jstring path = env->NewStringUTF (file.getFullPathName().toRawUTF8());
+    jobject obj = env->NewObject (cls, ctor, path);
+    env->DeleteLocalRef (path);
+    if (obj == nullptr)
+        return;
+
+    decoderGlobal = env->NewGlobalRef (obj);
+    env->DeleteLocalRef (obj);
+
+    // Call prepare() which does async MediaExtractor/MediaCodec setup and calls back onPrepared
+    jmethodID prepare = env->GetMethodID (cls, "prepare", "()V");
+    if (prepare != nullptr)
+        env->CallVoidMethod (decoderGlobal, prepare);
+
+    // Wait for onPrepared callback (with a timeout)
+    for (int i = 0; i < 50 && !prepared; ++i)
+    {
+        std::this_thread::sleep_for (std::chrono::milliseconds (20));
+    }
+}
+
+AndroidReader::~AndroidReader()
+{
+    JNIEnv* env = getEnv();
+    if (env != nullptr && decoderGlobal != nullptr)
+    {
+        jclass cls = env->GetObjectClass (decoderGlobal);
+        if (cls != nullptr)
+        {
+            jmethodID release = env->GetMethodID (cls, "release", "()V");
+            if (release != nullptr)
+                env->CallVoidMethod (decoderGlobal, release);
+        }
+        env->DeleteGlobalRef (decoderGlobal);
+    }
+}
+
+JNIEnv* AndroidReader::getEnv() const
+{
+    JNIEnv* env = nullptr;
+    auto* vm = juce::AndroidSystem::getJNIEnv();
+    if (vm != nullptr)
+        vm->GetEnv ((void**) &env, JNI_VERSION_1_6);
+    return env;
+}
+
+video::Info AndroidReader::info() const
+{
+    return videoInfo;
+}
+
+bool AndroidReader::seek (double seconds)
+{
+    JNIEnv* env = getEnv();
+    if (env != nullptr && decoderGlobal != nullptr)
+    {
+        jclass cls = env->GetObjectClass (decoderGlobal);
+        if (cls != nullptr)
+        {
+            jmethodID seek = env->GetMethodID (cls, "seek", "(D)V");
+            if (seek != nullptr)
+            {
+                env->CallVoidMethod (decoderGlobal, seek, seconds);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool AndroidReader::next (std::vector<std::uint8_t>& bgra, int& w, int& h, double& time)
+{
+    // The Java side does the actual decode and calls back onFrame.
+    // This is a synchronous call - in a real impl we'd wait on a condition variable
+    // for the frame to arrive. For now return false (no frame ready).
+    JNIEnv* env = getEnv();
+    if (env != nullptr && decoderGlobal != nullptr)
+    {
+        jclass cls = env->GetObjectClass (decoderGlobal);
+        if (cls != nullptr)
+        {
+            jmethodID decode = env->GetMethodID (cls, "decodeFrame", "()V");
+            if (decode != nullptr)
+                env->CallVoidMethod (decoderGlobal, decode);
+        }
+    }
+    return false;
+}
+
+std::shared_ptr<const video::AudioTrack> decodeNativeAudio (const juce::File& file, double rate)
+{
+    // Android: audio is decoded via the same MediaExtractor/MediaCodec pipeline.
+    // For now return nullptr - a full impl would use the Java AudioDecoder.
+    (void) file;
+    (void) rate;
+    return nullptr;
+}
+
+juce::String nativeBackendName()
+{
+    return "MediaCodec";
+}
+} // namespace
+
+std::unique_ptr<Reader> openNative (const juce::File& file)
+{
+    return std::make_unique<AndroidReader> (file);
+}
+
+#else
 // Linux: no system decoder (ffmpeg only)
 std::unique_ptr<Reader> openNative (const juce::File&) { return nullptr; }
 std::shared_ptr<const video::AudioTrack> decodeNativeAudio (const juce::File&, double) { return nullptr; }

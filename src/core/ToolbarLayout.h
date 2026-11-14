@@ -132,12 +132,17 @@ struct Layout
     int uiScale = 100; // percent
     bool separators = true; // hairlines between the panels (FL's "Separators")
     bool visible = true;    // the whole toolbar (Ctrl+F11 hides it, as in FL)
+    bool touchMode = false; // larger hit targets, on-screen keyboard, 125% default scale (Android defaults to true)
 
     static Layout makeDefault()
     {
         Layout l;
         for (auto g : defaultOrder())
             l.entries.push_back ({ g, shownByDefault (g) });
+#if JUCE_ANDROID
+        l.touchMode = true;
+        l.uiScale = 125;
+#endif
         return l;
     }
 
