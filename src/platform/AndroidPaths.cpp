@@ -61,12 +61,6 @@ juce::File cacheDir()
 // This is on shared storage but app-specific (deleted when app uninstalled).
 // May be null if external storage is not available.
 juce::File externalFilesDir()
-
-// JNI setter functions (called from AndroidJni.cpp via JNI)
-void setSettingsFolder (const juce::File& f) { g_settingsFolder = f; }
-void setCacheFolder (const juce::File& f) { g_cacheFolder = f; }
-void setBundledFontsFolder (const juce::File& f) { g_fontsFolder = f; }
-void setSharedStorageFolder (const juce::File& f) { g_sharedStorageFolder = f; }
 {
     if (auto* act = androidNativeActivity())
     {
@@ -76,6 +70,12 @@ void setSharedStorageFolder (const juce::File& f) { g_sharedStorageFolder = f; }
     }
     return juce::File();
 }
+
+// JNI setter functions (called from AndroidJni.cpp via JNI)
+void setSettingsFolder (const juce::File& f) { g_settingsFolder = f; }
+void setCacheFolder (const juce::File& f) { g_cacheFolder = f; }
+void setBundledFontsFolder (const juce::File& f) { g_fontsFolder = f; }
+void setSharedStorageFolder (const juce::File& f) { g_sharedStorageFolder = f; }
 
 // Returns the public Documents directory via MediaStore (API 29+).
 // For older API, falls back to Environment.getExternalStoragePublicDirectory.
