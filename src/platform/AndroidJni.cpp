@@ -186,14 +186,6 @@ Java_com_ka1s_lynx_file_FileAccessHelper_saveFileToUri (JNIEnv* env, jobject /*t
     return env->CallStaticBooleanMethod (cls, method, localPath, uri);
 }
 
-// Set the C++ callbacks for file operations
-namespace lynx::platform
-{
-    void setFileOpenCallback (std::function<void (const juce::String&, bool)> cb) { g_fileOpenCallback = std::move (cb); }
-    void setFileSaveCallback (std::function<void (const juce::String&, bool)> cb) { g_fileSaveCallback = std::move (cb); }
-    void setFolderPickCallback (std::function<void (const juce::String&, bool)> cb) { g_folderPickCallback = std::move (cb); }
-}
-
 #else
 
 // Stubs for non-Android builds (the symbols are referenced by the build but never called).
