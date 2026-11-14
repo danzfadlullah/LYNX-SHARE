@@ -192,29 +192,26 @@ juce::File localFile (const std::string& utf8Path)
 // Touch / mobile mode: on desktop this is always false unless the user enables it in Settings
 // (the setting is stored in ui-options.txt). The Android implementation (platform/AndroidPaths.cpp)
 // defaults to true and also reads the setting.
+#if !JUCE_ANDROID
+// Touch / mobile mode: on desktop this is always false unless the user enables it in Settings
+// (the setting is stored in ui-options.txt). The Android implementation (platform/AndroidPaths.cpp)
+// defaults to true and also reads the setting.
 bool isTouchMode()
 {
-#if JUCE_ANDROID
-    // Forward to Android implementation
-    extern bool isTouchMode();
-    return isTouchMode();
-#else
     static bool touchMode = false; // default off on desktop
     return touchMode;
-#endif
 }
 
 void setTouchMode (bool on)
 {
-#if JUCE_ANDROID
-    extern void setTouchMode (bool);
-    setTouchMode (on);
-#else
     static bool touchMode = false;
     touchMode = on;
-#endif
 }
 
+// Windows: when LYNX.exe sits in a folder whose path has non-ASCII characters ("Área de Trabalho"), some plugins
+// crash opening their editor (Waves 17's WebView builds a path from the host's module name and throws on it). This
+// starts LYNX again through the folder's 8.3 short name (plain ASCII), waits for it and returns true with its exit
+// code: the caller then quits. False (nothing done) when the path is ASCII, has no short name, or on other systems.
 bool relaunchFromAsciiPath (int& exitCode)
 {
    #if JUCE_WINDOWS
@@ -267,4 +264,5 @@ bool relaunchFromAsciiPath (int& exitCode)
     return false;
    #endif
 }
+#endif // !JUCE_ANDROID
 } // namespace lynx::platform
