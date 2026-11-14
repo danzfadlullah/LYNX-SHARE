@@ -181,13 +181,13 @@ AAssetManager* androidAssetManager()
 }
 
 // Android-specific: the JNIEnv for the current thread (attaches if needed).
-JNIEnv* androidGetJNIEnv()
+void* androidGetJNIEnv()
 {
     if (auto* act = androidNativeActivity())
     {
         JNIEnv* env = nullptr;
         act->vm->GetEnv ((void**) &env, JNI_VERSION_1_6);
-        return env;
+        return static_cast<void*> (env);
     }
     return nullptr;
 }
@@ -197,7 +197,7 @@ jobject androidGetContext()
 {
     if (auto* act = androidNativeActivity())
     {
-        JNIEnv* env = androidGetJNIEnv();
+        JNIEnv* env = static_cast<JNIEnv*> (androidGetJNIEnv());
         if (env != nullptr)
             return env->NewGlobalRef (act->clazz);
     }
@@ -227,7 +227,7 @@ void setFolderPickCallback (std::function<void (const juce::String&, bool)> cb) 
 
 void openDocument (const juce::String& mimeTypes)
 {
-    JNIEnv* env = androidGetJNIEnv();
+    JNIEnv* env = static_cast<JNIEnv*> (androidGetJNIEnv());
     if (env == nullptr) return;
     jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
     if (cls == nullptr) return;
@@ -240,7 +240,7 @@ void openDocument (const juce::String& mimeTypes)
 
 void saveDocument (const juce::String& suggestedName, const juce::String& mimeType)
 {
-    JNIEnv* env = androidGetJNIEnv();
+    JNIEnv* env = static_cast<JNIEnv*> (androidGetJNIEnv());
     if (env == nullptr) return;
     jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
     if (cls == nullptr) return;
@@ -255,7 +255,7 @@ void saveDocument (const juce::String& suggestedName, const juce::String& mimeTy
 
 void pickFolder ()
 {
-    JNIEnv* env = androidGetJNIEnv();
+    JNIEnv* env = static_cast<JNIEnv*> (androidGetJNIEnv());
     if (env == nullptr) return;
     jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
     if (cls == nullptr) return;
@@ -266,7 +266,7 @@ void pickFolder ()
 
 juce::String uriToFile (const juce::String& uri, const juce::String& fallbackExtension)
 {
-    JNIEnv* env = androidGetJNIEnv();
+    JNIEnv* env = static_cast<JNIEnv*> (androidGetJNIEnv());
     if (env == nullptr) return juce::String();
     jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
     if (cls == nullptr) return juce::String();
@@ -287,7 +287,7 @@ juce::String uriToFile (const juce::String& uri, const juce::String& fallbackExt
 
 bool saveFileToUri (const juce::String& localPath, const juce::String& uri)
 {
-    JNIEnv* env = androidGetJNIEnv();
+    JNIEnv* env = static_cast<JNIEnv*> (androidGetJNIEnv());
     if (env == nullptr) return false;
     jclass cls = env->FindClass ("com/ka1s/lynx/file/FileAccessHelper");
     if (cls == nullptr) return false;

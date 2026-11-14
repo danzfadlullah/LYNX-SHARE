@@ -839,11 +839,9 @@ AndroidReader::~AndroidReader()
 // Get JNIEnv for current thread - uses the app's cached JavaVM from AndroidJni.cpp
 JNIEnv* AndroidReader::getEnv() const
 {
-    JNIEnv* env = nullptr;
-    // Use the JNI environment from our AndroidJni glue
-    extern JNIEnv* androidGetJNIEnv();
-    env = androidGetJNIEnv();
-    return env;
+    // androidGetJNIEnv returns void* to avoid JNI header dependency in headers
+    extern void* androidGetJNIEnv();
+    return static_cast<JNIEnv*> (androidGetJNIEnv());
 }
 
 video::Info AndroidReader::info() const
