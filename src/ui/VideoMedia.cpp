@@ -38,6 +38,15 @@ namespace lynx::media
 {
 namespace
 {
+// Forward declaration for Android JNI environment accessor
+// (defined in platform/AndroidPaths.cpp, returns void* to avoid JNI header dependency in headers)
+#if JUCE_ANDROID
+extern void* lynx::platform::androidGetJNIEnv();
+#endif
+}
+{
+namespace
+{
 // ---------------------------------------------------------------------------------------------------------------
 // ffmpeg (the program)
 Probe probeWithFfmpeg (const juce::String& path)
@@ -840,7 +849,6 @@ AndroidReader::~AndroidReader()
 JNIEnv* AndroidReader::getEnv() const
 {
     // androidGetJNIEnv returns void* to avoid JNI header dependency in headers
-    extern void* lynx::platform::androidGetJNIEnv();
     return static_cast<JNIEnv*> (lynx::platform::androidGetJNIEnv());
 }
 
