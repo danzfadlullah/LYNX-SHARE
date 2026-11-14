@@ -49,8 +49,8 @@ jobs:
           mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
           cd "${ANDROID_SDK_ROOT}/cmdline-tools"
           
-          # Download latest command line tools
-          wget -q "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -o cmdline-tools.zip
+          # Download latest command line tools (use -O for output file, not -o)
+          wget -q "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -O cmdline-tools.zip
           unzip -q cmdline-tools.zip
           mv cmdline-tools latest
           
