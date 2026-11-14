@@ -200,7 +200,8 @@ AAssetManager* androidAssetManager()
 }
 
 // Android-specific: the JNIEnv for the current thread (attaches if needed).
-void* androidGetJNIEnv()
+// Using C linkage to avoid namespace issues when called from other namespaces.
+extern "C" void* lynx_android_get_jni_env()
 {
     if (auto* act = androidNativeActivity())
     {
@@ -210,6 +211,9 @@ void* androidGetJNIEnv()
     }
     return nullptr;
 }
+
+// Alias for backward compatibility (used in other platform code)
+void* androidGetJNIEnv() { return lynx_android_get_jni_env(); }
 
 // Android-specific: the application context (android.app.Application or Activity).
 jobject androidGetContext()
