@@ -23,43 +23,6 @@
 
 namespace lynx::media
 {
-// For Android-specific code: bring symbols from the outer lynx::media namespace into scope
-// These need to be at namespace scope (not in anonymous namespace) to be visible
-// to the Android-specific code which is in a different anonymous namespace.
-#if JUCE_ANDROID
-using lynx::media::Probe;
-using lynx::media::probeLock;
-using lynx::media::probes;
-using lynx::media::openNative;
-using lynx::media::nativeBackendName;
-using lynx::media::decodeNativeAudio;
-using lynx::media::probeWithFfmpeg;
-using lynx::findFfmpeg;
-using lynx::media::trackLock;
-using lynx::media::tracks;
-using lynx::media::trackPool;
-using lynx::media::trackRate;
-using lynx::media::decodeTrack;
-using lynx::media::decodeTrackWithFfmpeg;
-using lynx::media::probeWithFfmpeg;
-using lynx::media::decodeTrackWithFfmpeg;
-using lynx::media::decodeNativeAudio;
-using lynx::media::nativeBackendName;
-using lynx::media::openNative;
-using lynx::media::decodeTrack;
-using lynx::media::provideTrack;
-using lynx::media::trackPool;
-using lynx::media::trackLock;
-using lynx::media::tracks;
-using lynx::media::trackRate;
-using lynx::video::AudioTrack;
-using lynx::video::Info;
-using lynx::video::parseFfmpegReport;
-using lynx::findFfmpeg;
-using lynx::video::parseFfmpegReport;
-#endif
-} // namespace
-
 namespace
 {
 // Forward declaration for Android JNI environment accessor
@@ -421,10 +384,22 @@ void FrameDecoder::setSize (int w, int h)
 void FrameDecoder::request (double t, bool moving)
 {
     std::lock_guard<std::mutex> lock (want);
-    if (std::abs (t - wantTime) < 1e-6 && moving == wantMoving)
+    if (p == path)
         return;
-    wantTime = t;
-    wantMoving = moving;
+    path = p;
+    info = i;
+    restart = true;
+    notify();
+}
+
+void FrameDecoder::request (double t, bool moving)
+{
+    std::lock_guard<std::mutex> lock (want);
+    if (p == path)
+        return;
+    path = p;
+    info = i;
+    restart = true;
     notify();
 }
 
@@ -491,7 +466,7 @@ void FrameDecoder::runNative (Reader& reader, const juce::String& p)
         }
         if (w <= 0 || h <= 0)
         {
-            wait (50);
+            wait (100);
             continue;
         }
         if (fresh)
