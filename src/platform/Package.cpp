@@ -62,6 +62,9 @@ const Identity& identity()
 
 } // namespace
 
+#if !JUCE_ANDROID
+// Desktop implementations (Windows, macOS, Linux) - not compiled for Android
+
 juce::String packageFamilyName()
 {
     return identity().family;
@@ -174,15 +177,14 @@ juce::String packageReport()
     lines.add (juce::String ("result=") + (ok ? "OK" : "FAILED"));
     return lines.joinIntoString ("\n") + "\n";
 }
-
-#if JUCE_ANDROID
+#else
 // Android stubs for package functions (Windows Store only)
-bool runningPackaged() { return false; }
 juce::String packageFamilyName() { return {}; }
 juce::String packageFullName() { return {}; }
+bool runningPackaged() { return false; }
 juce::File packagedSettingsFolder() { return {}; }
 bool relaunchApp() { return false; }
 juce::String packageReport() { return "packaged=no\nresult=OK\n"; }
-#endif
+#endif // !JUCE_ANDROID
 
 } // namespace lynx::platform
