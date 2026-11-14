@@ -28,94 +28,100 @@ const Identity& identity()
        #if JUCE_WINDOWS
         // looked up at run time: kernel32 has them since Windows 8, and MinGW's appmodel.h depends on _WIN32_WINNT
         using GetName = LONG (WINAPI*) (UINT32*, PWSTR);
-        if (auto* kernel = GetModuleHandleW (L"kernel32.dll"))
+        using GetPackageId = LONG (WINAPI*) (UINT32*, PWSTR);
+        static GetName getName = (GetName) GetProcAddress (GetModuleHandleW (L"kernel32.dll"), "GetPackageFamilyName");
+        static GetPackageId getPackageId = (GetPackageId) GetProcAddress (GetModuleHandleW (L"kernel32.dll"), "GetPackageFullName");
+        if (getName != nullptr && getPackageId != nullptr)
         {
-            const auto query = [kernel] (const char* function) -> juce::String {
-                auto* get = reinterpret_cast<GetName> (reinterpret_cast<void*> (GetProcAddress (kernel, function)));
-                if (get == nullptr)
-                    return {};
-                UINT32 length = 0;
-                if (get (&length, nullptr) != ERROR_INSUFFICIENT_BUFFER || length == 0 || length > 1024)
-                    return {}; // APPMODEL_ERROR_NO_PACKAGE: a normal, unpackaged process
-                std::wstring name (length, L'\0');
-                if (get (&length, name.data()) != ERROR_SUCCESS)
-                    return {};
-                return juce::String (name.c_str());
-            };
-            result.family = query ("GetCurrentPackageFamilyName");
-            result.fullName = query ("GetCurrentPackageFullName");
+            UINT32 length = 0;
+            getName (&length, nullptr);
+            std::unique_ptr<wchar_t[]> buffer (new wchar_t[length]);
+            getName (&length, buffer.get());
+            result.family = juce::String (buffer.get(), length - 1); // -1 for trailing '\0'
+            length = 0;
+            getPackageId (&length, nullptr);
+            buffer.reset (new wchar_t[length]);
+            getPackageId (&length, buffer.get());
+            result.fullName = juce::String (buffer.get(), length - 1);
         }
-       #endif
-        if (result.family.isEmpty())
+        else
         {
-            const auto simulated = juce::SystemStats::getEnvironmentVariable ("LYNX_SIMULATE_PACKAGE_FAMILY", {}).trim();
-            if (simulated.isNotEmpty() && ! simulated.containsAnyOf ("\\/:*?\"<>|"))
+            result.simulated = true;
+            const char* sim = std::getenv ("LYNX_SIMULATE_PACKAGE_FAMILY");
+            if (sim != nullptr)
             {
-                result.family = simulated;
-                result.simulated = true;
+                result.family = juce::String (sim);
+                result.fullName = result.family + "_987654321";
             }
         }
+       #endif
         return result;
     }();
     return id;
 }
 
-// Copies the installer build's preferences once (core/StorePackage.h lists what comes along).
-void migrateFromUnpackaged (const juce::File& target)
-{
-    const auto marker = target.getChildFile (store::migrationMarker);
-    if (marker.exists())
-        return;
-    // a packaged process reading %APPDATA%\LYNX sees the real folder merged with its redirected one; the redirected
-    // one is `target` itself, so whatever is found there that `target` lacks is the real, unpackaged folder's
-    const auto old = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("LYNX");
-    juce::StringArray copied;
-    if (old.isDirectory() && old != target)
-    {
-        for (const auto& entry : juce::RangedDirectoryIterator (old, false, "*", juce::File::findFilesAndDirectories))
-        {
-            const auto& file = entry.getFile();
-            const auto name = file.getFileName();
-            if (! store::migratesFromUnpackaged (name.toStdString(), entry.isDirectory()))
-                continue;
-            const auto destination = target.getChildFile (name);
-            if (destination.exists())
-                continue; // never overwrite what the packaged LYNX already has
-            if (entry.isDirectory() ? file.copyDirectoryTo (destination) : file.copyFileTo (destination))
-                copied.add (name);
-        }
-    }
-    marker.replaceWithText ("Copied from " + old.getFullPathName() + " on first start of the packaged LYNX SHARE:\n"
-                            + copied.joinIntoString ("\n") + "\n");
-}
 } // namespace
 
-bool runningPackaged() { return identity().family.isNotEmpty(); }
-juce::String packageFamilyName() { return identity().family; }
-juce::String packageFullName() { return identity().fullName; }
+juce::String packageFamilyName()
+{
+    return identity().family;
+}
+
+juce::String packageFullName()
+{
+    return identity().fullName;
+}
+
+bool runningPackaged()
+{
+   #if JUCE_WINDOWS
+    // GetCurrentPackageFamilyName returns APPMODEL_ERROR_NO_PACKAGE when not packaged
+    using GetName = LONG (WINAPI*) (UINT32*, PWSTR);
+    static GetName getName = (GetName) GetProcAddress (GetModuleHandleW (L"kernel32.dll"), "GetPackageFamilyName");
+    if (getName != nullptr)
+    {
+        UINT32 length = 0;
+        const auto err = getName (nullptr, nullptr);
+        if (err == 0)
+            return true;
+        if (err == APPMODEL_ERROR_NO_PACKAGE)
+        {
+            // Check if we're simulating a package family
+            const char* sim = std::getenv ("LYNX_SIMULATE_PACKAGE_FAMILY");
+            if (sim != nullptr && *sim != '\0')
+                return true;
+        }
+    }
+   #endif
+    return false;
+}
 
 juce::File packagedSettingsFolder()
 {
-    static const juce::File folder = [] {
-        if (! runningPackaged())
-            return juce::File();
-       #if JUCE_WINDOWS
-        const auto local = juce::File::getSpecialLocation (juce::File::windowsLocalAppData).getFullPathName();
-       #else
-        const auto local = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getFullPathName();
-       #endif
-        const auto path = store::packagedSettingsFolder (local.toStdString(), packageFamilyName().toStdString());
-        if (path.empty())
-            return juce::File();
-        juce::File f (juce::String::fromUTF8 (path.c_str()));
-        if (! f.createDirectory())
-            return juce::File();
-        migrateFromUnpackaged (f);
-        return f;
-    }();
-    return folder;
+   #if JUCE_WINDOWS
+    // the Microsoft Store build: the real path of the package's redirected %APPDATA%\LYNX
+    if (runningPackaged())
+    {
+        // get the real path of the package's LocalAppData\LYNX (redirected from %APPDATA%)
+        wchar_t path[MAX_PATH * 4] {};
+        const auto length = GetModuleFileNameW (nullptr, path, (DWORD) std::size (path));
+        if (length > 0 && length < std::size (path))
+        {
+            juce::File exe (path);
+            auto appData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+            // the real path is something like: C:\Users\Name\AppData\Local\Packages\FamilyName\LocalCache\Local\LYNX
+            // we find it by going from the exe up to the package root, then down to LocalCache\Local\LYNX
+            for (auto p = exe.getParentDirectory(); p != juce::File(); p = p.getParentDirectory())
+                if (p.getFileName().endsWithIgnoreCase ("LYNX"))
+                    return p;
+        }
+    }
+   #endif
+    return juce::File();
 }
 
+// Starts LYNX again (after a language change): through the package when packaged, else this exe.
+// False when it could not be started.
 bool relaunchApp()
 {
    #if JUCE_WINDOWS
@@ -167,17 +173,16 @@ juce::String packageReport()
         probe.deleteFile(); // (packaged, it stays: the release workflow looks for it from outside the package)
     lines.add (juce::String ("result=") + (ok ? "OK" : "FAILED"));
     return lines.joinIntoString ("\n") + "\n";
-} // namespace lynx::platform
+}
 
 #if JUCE_ANDROID
 // Android stubs for package functions (Windows Store only)
-namespace lynx::platform
-{
 bool runningPackaged() { return false; }
 juce::String packageFamilyName() { return {}; }
 juce::String packageFullName() { return {}; }
 juce::File packagedSettingsFolder() { return {}; }
 bool relaunchApp() { return false; }
 juce::String packageReport() { return "packaged=no\nresult=OK\n"; }
-}
 #endif
+
+} // namespace lynx::platform
