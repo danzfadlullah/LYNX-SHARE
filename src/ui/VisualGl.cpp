@@ -647,7 +647,17 @@ struct GlSceneRenderer::Impl
         std::vector<std::uint8_t> rows ((std::size_t) w * (std::size_t) h * 4);
         glBindFramebuffer (GL_FRAMEBUFFER, out.getFrameBufferID());
         glPixelStorei (GL_PACK_ALIGNMENT, 4);
+#if JUCE_ANDROID
+        // OpenGL ES doesn't have GL_BGRA; use GL_RGBA and swizzle
+        glReadPixels (0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rows.data());
+        // Swizzle RGBA -> BGRA
+        for (std::size_t i = 0; i < rows.size(); i += 4)
+        {
+            std::swap (rows[i], rows[i + 2]); // R <-> B
+        }
+#else
         glReadPixels (0, 0, w, h, GL_BGRA, GL_UNSIGNED_BYTE, rows.data());
+#endif
         glBindFramebuffer (GL_FRAMEBUFFER, context->getFrameBufferID());
         const auto stride = (std::size_t) w * 4;
         for (int y = 0; y < h; ++y) // GL's first row is the bottom one
